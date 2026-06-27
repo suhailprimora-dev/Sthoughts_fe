@@ -15,6 +15,9 @@ export const metadata: Metadata = {
 
 import { MenuProvider } from "@/context/MenuContext";
 
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,6 +34,7 @@ export default function RootLayout({
             </div>
           </div>
         </MenuProvider>
+        <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
       </body>
     </html>
   );

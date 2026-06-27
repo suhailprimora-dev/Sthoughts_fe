@@ -18,6 +18,7 @@ import {
   PaymentMethodBreakdownDto, 
   TopItemDto 
 } from "@/services/analytics.service";
+import { toast } from "react-toastify";
 
 function formatRs(n: number) {
   return "₹" + (n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -55,7 +56,7 @@ export default function ReportsPage() {
         setIsLoading(false);
       }
     }).catch(err => {
-      console.error(err);
+      toast.error("Failed to load reports");
       if (isMounted) setIsLoading(false);
     });
 

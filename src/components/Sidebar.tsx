@@ -40,6 +40,12 @@ const NAV_ITEMS = [
     description: "Attendance & salary",
   },
   {
+    href: "/reports/payroll",
+    label: "Payroll Tracker",
+    icon: ClipboardList,
+    description: "Monthly salary status",
+  },
+  {
     href: "/menu",
     label: "Menu",
     icon: UtensilsCrossed,

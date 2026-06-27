@@ -16,7 +16,9 @@ import {
   ChevronDown,
   Sparkles,
   CheckCircle2,
+  Upload,
 } from "lucide-react";
+import { toast } from "react-toastify";
 import { MenuItem } from "@/types/billing";
 
 import { useMenu } from "@/context/MenuContext";
@@ -56,7 +58,7 @@ export default function MenuPage() {
       try {
         await deleteMenuItem(id);
       } catch (err) {
-        alert("Failed to delete item");
+        toast.error("Failed to delete item");
       }
     }
   };
@@ -68,14 +70,14 @@ export default function MenuPage() {
         ? `"${cat}" has ${count} item(s). Please reassign or delete them first before deleting the category.`
         : `Delete category "${cat}"?`;
     if (count > 0) {
-      alert(msg);
+      toast.warn(msg);
       return;
     }
     if (window.confirm(msg)) {
       try {
         await deleteCategory(cat);
       } catch (err) {
-        alert("Failed to delete category");
+        toast.error("Failed to delete category");
       }
     }
   };
@@ -89,8 +91,9 @@ export default function MenuPage() {
       await addCategory(name);
       setNewCategoryName("");
       setView("categories");
+      toast.success("Category added successfully");
     } catch (err) {
-      alert("Failed to add category");
+      toast.error("Failed to add category");
     }
   };
 
@@ -116,8 +119,9 @@ export default function MenuPage() {
       setEditingItem(null);
       setFormData({ name: "", price: "", category: categories[0] || "" });
       setView("items");
+      toast.success("Menu item saved successfully");
     } catch (err) {
-      alert("Failed to save menu item");
+      toast.error("Failed to save menu item");
     }
   };
 

@@ -27,48 +27,48 @@ export interface OrderDto {
 export const orderService = {
   // Get active order or create new one
   getActiveOrder: async (): Promise<OrderDto> => {
-    const response = await api.get("/orders/active");
+    const response = await api.get("/api/orders/active");
     return response.data;
   },
 
   // Get settled orders history
   getHistory: async (): Promise<OrderDto[]> => {
-    const response = await api.get("/orders/history");
+    const response = await api.get("/api/orders/history");
     return response.data;
   },
 
   // Cancel active order
   cancelActiveOrder: async (): Promise<void> => {
-    await api.delete("/orders/active");
+    await api.delete("/api/orders/active");
   },
 
   // Add item to order
   addItem: async (orderId: number, item: { menuItemId: number, name: string, price: number, quantity: number }): Promise<OrderDto> => {
-    const response = await api.post(`/orders/${orderId}/items`, item);
+    const response = await api.post(`/api/orders/${orderId}/items`, item);
     return response.data;
   },
 
   // Update item quantity
   updateItemQuantity: async (orderId: number, itemId: number, delta: number): Promise<OrderDto> => {
-    const response = await api.put(`/orders/${orderId}/items/${itemId}?delta=${delta}`);
+    const response = await api.put(`/api/orders/${orderId}/items/${itemId}?delta=${delta}`);
     return response.data;
   },
 
   // Remove item
   removeItem: async (orderId: number, itemId: number): Promise<OrderDto> => {
-    const response = await api.delete(`/orders/${orderId}/items/${itemId}`);
+    const response = await api.delete(`/api/orders/${orderId}/items/${itemId}`);
     return response.data;
   },
 
   // Update GST
   updateGstRate: async (orderId: number, rate: number): Promise<OrderDto> => {
-    const response = await api.put(`/orders/${orderId}/gst?rate=${rate}`);
+    const response = await api.put(`/api/orders/${orderId}/gst?rate=${rate}`);
     return response.data;
   },
 
   // Settle bill
   settleOrder: async (orderId: number, details: any): Promise<OrderDto> => {
-    const response = await api.post(`/orders/${orderId}/settle`, details);
+    const response = await api.post(`/api/orders/${orderId}/settle`, details);
     return response.data;
   }
 };

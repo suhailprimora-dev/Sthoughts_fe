@@ -44,6 +44,15 @@ const config: Config = {
         premium: "0 10px 30px -10px rgba(18, 29, 24, 0.08), 0 1px 3px rgba(18, 29, 24, 0.02)",
         glow: "0 0 15px rgba(202, 157, 22, 0.15)",
       },
+      keyframes: {
+        bounceIn: {
+          '0%': { transform: 'scale(0.8)', opacity: '0' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
+        }
+      },
+      animation: {
+        bounceIn: 'bounceIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+      }
     },
   },
   plugins: [],

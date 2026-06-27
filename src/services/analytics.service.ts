@@ -37,27 +37,27 @@ export interface TopItemDto {
 
 export const analyticsService = {
   getOverview: async (range: string): Promise<AnalyticsOverviewDto> => {
-    const response = await api.get(`/analytics/overview?range=${range}`);
+    const response = await api.get(`/api/analytics/overview?range=${range}`);
     return response.data;
   },
 
   getTodayYesterday: async (): Promise<TodayYesterdayDto> => {
-    const response = await api.get('/analytics/today-vs-yesterday');
+    const response = await api.get('/api/analytics/today-vs-yesterday');
     return response.data;
   },
 
   getDailyRevenue: async (range: string): Promise<DailyRevenueDto[]> => {
-    const response = await api.get(`/analytics/daily-revenue?range=${range}`);
+    const response = await api.get(`/api/analytics/daily-revenue?range=${range}`);
     return response.data;
   },
 
   getPaymentBreakdown: async (range: string): Promise<PaymentMethodBreakdownDto> => {
-    const response = await api.get(`/analytics/payment-methods?range=${range}`);
+    const response = await api.get(`/api/analytics/payment-methods?range=${range}`);
     return response.data;
   },
 
   getTopItems: async (range: string): Promise<TopItemDto[]> => {
-    const response = await api.get(`/analytics/top-items?range=${range}`);
+    const response = await api.get(`/api/analytics/top-items?range=${range}`);
     return response.data;
   }
 };

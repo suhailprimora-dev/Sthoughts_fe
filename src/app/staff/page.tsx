@@ -29,7 +29,11 @@ import {
   LeaveType,
   LeaveStatus,
   SalaryStructure,
+  PayrollRecord,
 } from "@/types/billing";
+import { staffService } from "@/services/staff.service";
+import { attendanceService } from "@/services/attendance.service";
+import { toast } from "react-toastify";
 
 const ROLES: StaffRole[] = ["Manager", "Waiter", "Chef", "Cashier", "Cleaner", "Helper"];
 const LEAVE_TYPES: LeaveType[] = ["Casual", "Sick", "Unpaid", "Festival"];
@@ -84,17 +88,20 @@ function EmployeeDetailView({
   attendance,
   leaves,
   salary,
+  payrollRecords,
   onBack,
 }: {
   member: StaffMember;
   attendance: AttendanceRecord[];
   leaves: LeaveRequest[];
   salary?: SalaryStructure;
+  payrollRecords: PayrollRecord[];
   onBack: () => void;
 }) {
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth()); // 0-indexed
+  const [viewPayslip, setViewPayslip] = useState<PayrollRecord | null>(null);
 
   const myAttendance = useMemo(
     () => attendance.filter((a) => a.staffId === member.id),
@@ -104,6 +111,11 @@ function EmployeeDetailView({
   const myLeaves = useMemo(
     () => leaves.filter((l) => l.staffId === member.id),
     [leaves, member.id]
+  );
+
+  const myPayroll = useMemo(
+    () => payrollRecords.filter((p) => p.staffId === member.id).sort((a, b) => b.month.localeCompare(a.month)),
+    [payrollRecords, member.id]
   );
 
   // Year summary
@@ -368,6 +380,148 @@ function EmployeeDetailView({
           </div>
         )}
       </div>
+
+      {/* Payment History */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 className="text-sm font-bold text-slate-700 mb-3">Payment History</h3>
+        {myPayroll.length === 0 ? (
+          <p className="text-slate-400 text-sm text-center py-4">No salary payments on record</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Month</th>
+                  <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Amount Paid</th>
+                  <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Payment Date</th>
+                  <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {myPayroll.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50/50 group">
+                    <td className="px-4 py-3">
+                      <span className="font-bold text-slate-800 text-sm">
+                        {new Date(p.month + "-01").toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-black text-emerald-600 text-sm">₹{p.netSalary.toLocaleString()}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs font-medium text-slate-500">
+                        {p.paidAt ? new Date(p.paidAt).toLocaleDateString("en-IN", {
+                          day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                        }) : "-"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => setViewPayslip(p)}
+                        className="px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg text-xs font-bold transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      >
+                        View Slip
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Payslip Modal */}
+      {viewPayslip && salaryInfo && salary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-bounceIn flex flex-col max-h-[90vh]">
+            <div className="p-5 bg-gradient-to-r from-primary-950 to-primary-800 text-white flex items-center justify-between flex-shrink-0">
+              <div>
+                <h2 className="text-lg font-black tracking-tight">Salary Slip</h2>
+                <p className="text-primary-300 text-xs font-medium">
+                  {new Date(viewPayslip.month + "-01").toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+              <button onClick={() => setViewPayslip(null)} className="p-1.5 hover:bg-white/10 rounded-xl transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto bg-slate-50">
+              {/* Employee Info */}
+              <div className="flex items-center gap-4 pb-6 border-b border-dashed border-slate-300">
+                <div className="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center font-black text-primary-700 text-lg flex-shrink-0">
+                  {member.name.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800">{member.name}</h3>
+                  <p className="text-xs text-slate-500 uppercase tracking-widest mt-0.5">{member.role}</p>
+                </div>
+              </div>
+
+              {/* Attendance Summary for the Month */}
+              <div className="py-6 border-b border-dashed border-slate-300">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Attendance Summary</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {(["present", "half-day", "absent", "leave"] as AttendanceStatus[]).map(s => {
+                    // Count days for this specific month
+                    const count = myAttendance.filter(a => a.date.startsWith(viewPayslip.month) && a.status === s).length;
+                    const cfg = ATTENDANCE_CONFIG[s];
+                    return (
+                      <div key={s} className="bg-white rounded-xl p-2 text-center border border-slate-100 shadow-sm">
+                        <p className="text-lg font-black text-slate-800">{count}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">{cfg.short}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Salary Breakdown */}
+              <div className="py-6">
+                <div className="grid grid-cols-2 gap-6 text-sm">
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Earnings</p>
+                    {[
+                      { label: "Basic Pay", val: salary.basic },
+                      { label: "HRA", val: salary.hra },
+                      { label: "Food Allowance", val: salary.foodAllowance },
+                      { label: "Travel Allowance", val: salary.travelAllowance },
+                    ].map(({ label, val }) => (
+                      <div key={label} className="flex justify-between">
+                        <span className="text-slate-600 font-medium">{label}</span>
+                        <span className="font-bold text-slate-800">₹{val.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Deductions</p>
+                    {[
+                      { label: "Provident Fund", val: salary.pfDeduction },
+                      { label: "Professional Tax", val: salary.taxDeduction },
+                    ].map(({ label, val }) => (
+                      <div key={label} className="flex justify-between">
+                        <span className="text-slate-600 font-medium">{label}</span>
+                        <span className="font-bold text-rose-500">-₹{val.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-white border-t border-slate-200 flex items-center justify-between flex-shrink-0">
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Net Payable</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Paid on {viewPayslip.paidAt ? new Date(viewPayslip.paidAt).toLocaleDateString() : '-'}
+                </p>
+              </div>
+              <h3 className="text-3xl font-black text-emerald-600">₹{viewPayslip.netSalary.toLocaleString()}</h3>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -382,6 +536,10 @@ export default function StaffPage() {
   const [attendanceDate, setAttendanceDate] = useState(todayISO());
   const [selectedEmployee, setSelectedEmployee] = useState<StaffMember | null>(null);
 
+  // Payroll Tracking State
+  const [payrollMonth, setPayrollMonth] = useState(todayISO().substring(0, 7)); // YYYY-MM
+  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
+
   // Draft attendance for the selected date (before submitting)
   const [draftAttendance, setDraftAttendance] = useState<Record<string, AttendanceStatus>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -389,24 +547,45 @@ export default function StaffPage() {
   // Modals
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [showLeaveForm, setShowLeaveForm] = useState(false);
+  const [staffToDelete, setStaffToDelete] = useState<string | null>(null);
 
   const [staffForm, setStaffForm] = useState<Partial<StaffMember>>({
-    name: "", role: "Waiter", phone: "", email: "", joinDate: todayISO(), salary: 18000, isActive: true,
+    id: "", name: "", role: "Waiter", phone: "", email: "", joinDate: todayISO(), salary: 18000, isActive: true,
   });
   const [leaveForm, setLeaveForm] = useState({
     staffId: "", fromDate: todayISO(), toDate: todayISO(), leaveType: "Casual" as LeaveType, reason: "",
   });
 
   useEffect(() => {
-    const s   = localStorage.getItem("staff_members");
+    staffService.getStaff()
+      .then(data => {
+        if (data && data.length > 0) setStaff(data);
+        else {
+          setStaff(SAMPLE_STAFF); // Fallback to sample
+          // Optionally save samples to db for first run
+          SAMPLE_STAFF.forEach(s => staffService.addStaff(s).catch(console.error));
+        }
+      })
+      .catch(console.error);
+
     const a   = localStorage.getItem("staff_attendance");
     const l   = localStorage.getItem("staff_leaves");
     const sal = localStorage.getItem("staff_salaries");
-    setStaff(s   ? JSON.parse(s)   : SAMPLE_STAFF);
-    setAttendance(a ? JSON.parse(a) : []);
+    const pr  = localStorage.getItem("staff_payroll");
+    
+    attendanceService.getAttendance()
+      .then(data => {
+        if (data && data.length > 0) setAttendance(data);
+        else if (a) setAttendance(JSON.parse(a));
+      })
+      .catch(err => {
+        console.error(err);
+        if (a) setAttendance(JSON.parse(a));
+      });
+
     setLeaves(l   ? JSON.parse(l)   : []);
     setSalaries(sal ? JSON.parse(sal) : SAMPLE_SALARIES);
-    if (!s)   localStorage.setItem("staff_members",  JSON.stringify(SAMPLE_STAFF));
+    setPayrollRecords(pr ? JSON.parse(pr) : []);
     if (!sal) localStorage.setItem("staff_salaries", JSON.stringify(SAMPLE_SALARIES));
   }, []);
 
@@ -417,13 +596,12 @@ export default function StaffPage() {
       .filter((a) => a.date === attendanceDate)
       .forEach((a) => { existing[a.staffId] = a.status; });
     setDraftAttendance(existing);
-    setSubmitted(false);
   }, [attendanceDate, attendance]);
 
-  const saveStaff       = (d: StaffMember[])       => { setStaff(d);      localStorage.setItem("staff_members",    JSON.stringify(d)); };
   const saveAttendance  = (d: AttendanceRecord[])   => { setAttendance(d); localStorage.setItem("staff_attendance", JSON.stringify(d)); };
   const saveLeaves      = (d: LeaveRequest[])       => { setLeaves(d);     localStorage.setItem("staff_leaves",     JSON.stringify(d)); };
   const saveSalaries    = (d: SalaryStructure[])    => { setSalaries(d);   localStorage.setItem("staff_salaries",   JSON.stringify(d)); };
+  const savePayroll     = (d: PayrollRecord[])      => { setPayrollRecords(d); localStorage.setItem("staff_payroll", JSON.stringify(d)); };
 
   const activeStaff = staff.filter((s) => s.isActive);
 
@@ -434,17 +612,30 @@ export default function StaffPage() {
   };
 
   // Submit all draft attendance for the date
-  const submitAttendance = () => {
-    const otherDays = attendance.filter((a) => a.date !== attendanceDate);
+  const submitAttendance = async () => {
     const todayRecords: AttendanceRecord[] = Object.entries(draftAttendance).map(([staffId, status]) => ({
       id: `${staffId}-${attendanceDate}`,
       staffId,
       date: attendanceDate,
       status,
     }));
-    saveAttendance([...otherDays, ...todayRecords]);
+
+    try {
+      const updatedAttendance = await attendanceService.submitAttendance(todayRecords);
+      saveAttendance(updatedAttendance);
+      toast.success("Attendance saved successfully");
+    } catch (err) {
+      console.error("Failed to save attendance via API, falling back to local storage", err);
+      toast.error("Failed to save to database. Saved locally.");
+      const otherDays = attendance.filter((a) => a.date !== attendanceDate);
+      saveAttendance([...otherDays, ...todayRecords]);
+    }
+
     setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 3000);
+    setTimeout(() => {
+      setSubmitted(false);
+      setAttendanceDate(todayISO());
+    }, 2500);
   };
 
   const draftCount = Object.keys(draftAttendance).length;
@@ -460,10 +651,9 @@ export default function StaffPage() {
     return map;
   }, [leaves]);
 
-  const handleAddStaff = (e: React.FormEvent) => {
+  const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    const member: StaffMember = {
-      id: Date.now().toString(),
+    const member: Partial<StaffMember> = {
       name: staffForm.name || "",
       role: (staffForm.role as StaffRole) || "Waiter",
       phone: staffForm.phone || "",
@@ -472,18 +662,58 @@ export default function StaffPage() {
       salary: staffForm.salary || 0,
       isActive: true,
     };
-    saveStaff([...staff, member]);
-    const defSal: SalaryStructure = {
-      staffId: member.id, basic: member.salary * 0.7, hra: member.salary * 0.15,
-      foodAllowance: 1500, travelAllowance: 800, pfDeduction: member.salary * 0.07, taxDeduction: 0,
-    };
-    saveSalaries([...salaries, defSal]);
-    setStaffForm({ name: "", role: "Waiter", phone: "", email: "", joinDate: todayISO(), salary: 18000, isActive: true });
-    setShowAddStaff(false);
+    
+    try {
+      if (staffForm.id) {
+        // Edit
+        if (staffForm.id.startsWith("s")) {
+          // Local update for sample staff
+          const updated = { ...member, id: staffForm.id } as StaffMember;
+          setStaff(staff.map(s => s.id === updated.id ? updated : s));
+        } else {
+          const updated = await staffService.updateStaff(staffForm.id, member);
+          setStaff(staff.map(s => s.id === updated.id ? updated : s));
+        }
+        toast.success("Staff updated successfully");
+      } else {
+        // Add
+        const newMember = await staffService.addStaff(member);
+        setStaff([...staff, newMember]);
+        const defSal: SalaryStructure = {
+          staffId: newMember.id, basic: newMember.salary * 0.7, hra: newMember.salary * 0.15,
+          foodAllowance: 1500, travelAllowance: 800, pfDeduction: newMember.salary * 0.07, taxDeduction: 0,
+        };
+        saveSalaries([...salaries, defSal]);
+        toast.success("Staff added successfully");
+      }
+      
+      setStaffForm({ id: "", name: "", role: "Waiter", phone: "", email: "", joinDate: todayISO(), salary: 18000, isActive: true });
+      setShowAddStaff(false);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save staff member");
+    }
   };
 
-  const handleDeleteStaff = (id: string) => {
-    if (window.confirm("Remove this staff member?")) saveStaff(staff.filter((s) => s.id !== id));
+  const confirmDeleteStaff = async () => {
+    if (!staffToDelete) return;
+    try {
+      if (!staffToDelete.startsWith("s")) {
+        await staffService.deleteStaff(staffToDelete);
+      }
+      setStaff(staff.filter((s) => s.id !== staffToDelete));
+      toast.success("Staff member removed");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to remove staff member");
+    } finally {
+      setStaffToDelete(null);
+    }
+  };
+
+  const handleEditStaff = (member: StaffMember) => {
+    setStaffForm(member);
+    setShowAddStaff(true);
   };
 
   const handleAddLeave = (e: React.FormEvent) => {
@@ -503,8 +733,37 @@ export default function StaffPage() {
     saveLeaves(leaves.map((l) => (l.id === id ? { ...l, status } : l)));
 
   const updateSalaryField = (staffId: string, field: keyof SalaryStructure, value: number) => {
-    const updated = salaries.map((s) => (s.staffId === staffId ? { ...s, [field]: value } : s));
-    saveSalaries(updated);
+    const newSalaries = [...salaries];
+    const index = newSalaries.findIndex((s) => s.staffId === staffId);
+    if (index >= 0) {
+      newSalaries[index] = { ...newSalaries[index], [field]: value };
+    } else {
+      const base = staff.find((s) => s.id === staffId)?.salary || 0;
+      newSalaries.push({
+        staffId, basic: base * 0.7, hra: base * 0.15, foodAllowance: 1500, travelAllowance: 800, pfDeduction: base * 0.07, taxDeduction: 0,
+        [field]: value,
+      });
+    }
+    saveSalaries(newSalaries);
+  };
+
+  // Submit Salary for a specific month
+  const submitSalary = (memberId: string, netSalary: number) => {
+    const existing = payrollRecords.find(r => r.staffId === memberId && r.month === payrollMonth);
+    if (existing) {
+      toast.info("Salary already paid for this month.");
+      return;
+    }
+    const record: PayrollRecord = {
+      id: Date.now().toString(),
+      staffId: memberId,
+      month: payrollMonth,
+      netSalary,
+      status: "paid",
+      paidAt: new Date().toISOString()
+    };
+    savePayroll([...payrollRecords, record]);
+    toast.success("Salary marked as paid!");
   };
 
   return (
@@ -519,7 +778,10 @@ export default function StaffPage() {
             </p>
           </div>
           <button
-            onClick={() => setShowAddStaff(true)}
+            onClick={() => {
+              setStaffForm({ id: "", name: "", role: "Waiter", phone: "", email: "", joinDate: todayISO(), salary: 18000, isActive: true });
+              setShowAddStaff(true);
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-bold transition-all shadow-md border border-white/5"
           >
             <Plus className="w-4 h-4" /> Add Staff
@@ -554,6 +816,7 @@ export default function StaffPage() {
               attendance={attendance}
               leaves={leaves}
               salary={salaries.find((s) => s.staffId === selectedEmployee.id)}
+              payrollRecords={payrollRecords}
               onBack={() => setSelectedEmployee(null)}
             />
           ) : (
@@ -590,7 +853,13 @@ export default function StaffPage() {
                         {leaveDays[member.id] || 0}d leave
                       </span>
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteStaff(member.id); }}
+                        onClick={(e) => { e.stopPropagation(); handleEditStaff(member); }}
+                        className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                      >
+                        <span className="text-xs font-bold px-1">Edit</span>
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setStaffToDelete(member.id); }}
                         className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -603,7 +872,10 @@ export default function StaffPage() {
                 <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
                   <Users className="w-12 h-12 text-slate-300 mx-auto mb-3 stroke-[1.25]" />
                   <p className="text-slate-500 font-semibold">No staff members yet</p>
-                  <button onClick={() => setShowAddStaff(true)} className="mt-3 text-xs text-primary-600 font-bold hover:underline">
+                  <button onClick={() => {
+                    setStaffForm({ id: "", name: "", role: "Waiter", phone: "", email: "", joinDate: todayISO(), salary: 18000, isActive: true });
+                    setShowAddStaff(true);
+                  }} className="mt-3 text-xs text-primary-600 font-bold hover:underline">
                     + Add first staff member
                   </button>
                 </div>
@@ -791,6 +1063,19 @@ export default function StaffPage() {
         {/* ─── Salary Tab ─── */}
         {tab === "salary" && (
           <div className="space-y-4">
+            <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200">
+              <h3 className="text-sm font-bold text-slate-800">Monthly Salary Processing</h3>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                <input
+                  type="month"
+                  value={payrollMonth}
+                  onChange={(e) => setPayrollMonth(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+
             {activeStaff.map((member) => {
               const sal = salaries.find((s) => s.staffId === member.id) || {
                 staffId: member.id, basic: 0, hra: 0, foodAllowance: 0, travelAllowance: 0, pfDeduction: 0, taxDeduction: 0,
@@ -798,7 +1083,7 @@ export default function StaffPage() {
               const { gross, deductions, net } = formatSalary(sal);
               return (
                 <div key={member.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                  <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-primary-100 flex items-center justify-center font-black text-primary-700 text-sm">
                         {member.name.charAt(0)}
@@ -808,9 +1093,24 @@ export default function StaffPage() {
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${ROLE_COLORS[member.role]}`}>{member.role}</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-slate-400">Net Take-Home</p>
-                      <p className="text-lg font-black text-emerald-600">₹{net.toLocaleString()}</p>
+                    <div className="flex items-center gap-6">
+                      <div className="text-right">
+                        <p className="text-xs text-slate-400">Net Take-Home</p>
+                        <p className="text-lg font-black text-emerald-600">₹{net.toLocaleString()}</p>
+                      </div>
+                      {payrollRecords.some(r => r.staffId === member.id && r.month === payrollMonth) ? (
+                        <div className="px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 animate-in fade-in zoom-in">
+                          <CheckCircle className="w-5 h-5 text-emerald-500" />
+                          <span className="text-sm font-bold text-emerald-700">Paid for {new Date(payrollMonth + "-01").toLocaleDateString('en-US', { month: 'short' })}</span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => submitSalary(member.id, net)}
+                          className="px-5 py-2.5 bg-primary-950 hover:bg-primary-900 text-white rounded-xl text-sm font-bold shadow-md transition-all active:scale-95"
+                        >
+                          Submit Salary
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -854,7 +1154,7 @@ export default function StaffPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <form onSubmit={handleAddStaff} className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
             <div className="p-5 bg-primary-950 text-white flex items-center justify-between">
-              <h2 className="text-lg font-bold">Add New Staff</h2>
+              <h2 className="text-lg font-bold">{staffForm.id ? "Edit Staff Member" : "Add New Staff"}</h2>
               <button type="button" onClick={() => setShowAddStaff(false)} className="p-1.5 bg-white/10 rounded-lg hover:bg-white/20">
                 <X className="w-5 h-5" />
               </button>
@@ -898,7 +1198,9 @@ export default function StaffPage() {
             </div>
             <div className="p-4 border-t border-slate-100 flex gap-3">
               <button type="button" onClick={() => setShowAddStaff(false)} className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-all">Cancel</button>
-              <button type="submit" className="flex-1 py-2.5 bg-primary-950 text-white rounded-xl font-bold text-sm hover:bg-primary-900 transition-all shadow-md">Add Staff Member</button>
+              <button type="submit" className="flex-1 py-2.5 bg-primary-950 text-white rounded-xl font-bold text-sm hover:bg-primary-900 transition-all shadow-md">
+                {staffForm.id ? "Update Staff" : "Add Staff Member"}
+              </button>
             </div>
           </form>
         </div>
@@ -953,6 +1255,54 @@ export default function StaffPage() {
               <button type="submit" className="flex-1 py-2.5 bg-primary-950 text-white rounded-xl font-bold text-sm hover:bg-primary-900 shadow-md">Submit Request</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {staffToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden text-center">
+            <div className="p-6 pt-8">
+              <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-8 h-8 text-rose-500" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Remove Staff Member?</h3>
+              <p className="text-sm text-slate-500 px-4">
+                Are you sure you want to remove this staff member? This action cannot be undone.
+              </p>
+            </div>
+            <div className="p-4 border-t border-slate-100 flex gap-3 bg-slate-50">
+              <button 
+                type="button"
+                onClick={() => setStaffToDelete(null)}
+                className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all shadow-sm"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                onClick={confirmDeleteStaff}
+                className="flex-1 py-2.5 bg-rose-500 text-white rounded-xl font-bold text-sm hover:bg-rose-600 transition-all shadow-md shadow-rose-500/20"
+              >
+                Yes, Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Attendance Submitted Success Modal */}
+      {submitted && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden text-center p-8 animate-bounceIn">
+            <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+              <CheckCircle className="w-12 h-12 text-emerald-500" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-800 mb-2">Submitted!</h3>
+            <p className="text-sm text-slate-500">
+              Attendance records for <span className="font-bold text-slate-700">{new Date(attendanceDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span> have been saved successfully.
+            </p>
+          </div>
         </div>
       )}
     </div>

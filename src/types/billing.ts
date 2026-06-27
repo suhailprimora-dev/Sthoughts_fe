@@ -82,3 +82,14 @@ export interface SalaryStructure {
   pfDeduction: number;   // Provident Fund
   taxDeduction: number;
 }
+
+export type PayrollStatus = "paid" | "unpaid";
+
+export interface PayrollRecord {
+  id: string;
+  staffId: string;
+  month: string;       // YYYY-MM format
+  netSalary: number;   // Final amount paid
+  status: PayrollStatus;
+  paidAt?: string;     // ISO timestamp when it was paid
+}

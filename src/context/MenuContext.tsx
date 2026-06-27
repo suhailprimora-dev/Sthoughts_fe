@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { MenuItem } from "@/types/billing";
 import { menuService } from "@/services/menu.service";
+import { toast } from "react-toastify";
 
 interface MenuContextType {
   items: MenuItem[];
@@ -67,7 +68,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
         setDbCategories(prev => [...prev, name]);
       } catch (err) {
         console.error("Failed to add category to backend:", err);
-        alert("Failed to add category to backend");
+        toast.error("Failed to add category to backend");
       }
     }
   };
@@ -78,7 +79,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
       setDbCategories(prev => prev.filter(c => c !== name));
     } catch (err) {
       console.error("Failed to delete category from backend:", err);
-      alert("Failed to delete category from backend");
+      toast.error("Failed to delete category from backend");
     }
   };
 

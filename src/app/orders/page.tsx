@@ -11,9 +11,10 @@ import {
   Smartphone,
   Table2,
   Clock,
+  Calendar,
 } from "lucide-react";
-import { PaymentMethod } from "@/types/billing";
-import { orderService, OrderDto } from "@/services/order.service";
+import { OrderDto, orderService } from "@/services/order.service";
+import { toast } from "react-toastify";
 
 function formatRs(n: number) {
   return "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -63,7 +64,7 @@ export default function OrderHistoryPage() {
   const [printedBill, setPrintedBill] = useState<OrderDto | null>(null);
 
   useEffect(() => {
-    orderService.getHistory().then(setBills).catch(console.error);
+    orderService.getHistory().then(setBills).catch(() => toast.error("Failed to load history"));
   }, []);
 
   const filtered = useMemo(() => {

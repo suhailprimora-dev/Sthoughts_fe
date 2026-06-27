@@ -18,6 +18,7 @@ import { MenuItem, DraftItem, Bill, PaymentMethod } from "@/types/billing";
 import SettleModal from "@/components/SettleModal";
 import { orderService, OrderDto, OrderItemDto } from "@/services/order.service";
 import { useMenu } from "@/context/MenuContext";
+import { toast } from "react-toastify";
 
 function formatRs(n: number) {
   return "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -46,7 +47,7 @@ export default function RestaurantBillingPage() {
     // Fetch active order from backend
     orderService.getActiveOrder().then(order => {
       setActiveOrder(order);
-    }).catch(err => console.error("Failed to fetch active order", err));
+    }).catch(err => toast.error("Failed to fetch active order"));
   }, []);
 
   // Sync history helper
@@ -76,7 +77,7 @@ export default function RestaurantBillingPage() {
       const order = await orderService.getActiveOrder();
       setActiveOrder(order);
     } catch (err) {
-      console.error(err);
+      toast.error("Failed to start new order");
     }
   };
 
@@ -105,7 +106,7 @@ export default function RestaurantBillingPage() {
       });
       setActiveOrder(updated);
     } catch (err) {
-      console.error("Failed to add item", err);
+      toast.error("Failed to add item");
     }
   };
 
@@ -116,7 +117,7 @@ export default function RestaurantBillingPage() {
       const updated = await orderService.updateItemQuantity(activeOrder.id, itemId, delta);
       setActiveOrder(updated);
     } catch (err) {
-      console.error("Failed to update qty", err);
+      toast.error("Failed to update qty");
     }
   };
 
@@ -127,7 +128,7 @@ export default function RestaurantBillingPage() {
       const updated = await orderService.removeItem(activeOrder.id, itemId);
       setActiveOrder(updated);
     } catch (err) {
-      console.error("Failed to remove item", err);
+      toast.error("Failed to remove item");
     }
   };
 
@@ -137,7 +138,7 @@ export default function RestaurantBillingPage() {
       const updated = await orderService.updateGstRate(activeOrder.id, rate);
       setActiveOrder(updated);
     } catch (err) {
-      console.error("Failed to update GST", err);
+      toast.error("Failed to update GST");
     }
   };
 
@@ -163,12 +164,14 @@ export default function RestaurantBillingPage() {
       setPrintedBill(settledOrder);
       setShowSettleModal(false);
 
+      toast.success("Bill settled successfully!");
+
       setTimeout(() => {
         window.print();
         setActiveOrder(null);
       }, 100);
     } catch (err) {
-      console.error("Failed to settle", err);
+      toast.error("Failed to settle bill");
     }
   };
 
