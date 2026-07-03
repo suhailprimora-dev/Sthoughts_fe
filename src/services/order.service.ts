@@ -24,6 +24,14 @@ export interface OrderDto {
   items: OrderItemDto[];
 }
 
+export interface PaginatedOrderHistoryDto {
+  content: OrderDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 export const orderService = {
   // Get active order or create new one
   getActiveOrder: async (): Promise<OrderDto> => {
@@ -37,9 +45,28 @@ export const orderService = {
     return response.data;
   },
 
+  // Get paginated orders history
+  getHistoryPaginated: async (params: { page?: number; size?: number; search?: string; paymentMethod?: string; fromDate?: string; toDate?: string }): Promise<PaginatedOrderHistoryDto> => {
+    const query = new URLSearchParams();
+    if (params.page !== undefined) query.set("page", params.page.toString());
+    if (params.size !== undefined) query.set("size", params.size.toString());
+    if (params.search) query.set("search", params.search);
+    if (params.paymentMethod && params.paymentMethod !== "all") query.set("paymentMethod", params.paymentMethod);
+    if (params.fromDate) query.set("fromDate", params.fromDate);
+    if (params.toDate) query.set("toDate", params.toDate);
+    const response = await api.get(`/api/orders/history/paginated?${query.toString()}`);
+    return response.data;
+  },
+
   // Cancel active order
   cancelActiveOrder: async (): Promise<void> => {
     await api.delete("/api/orders/active");
+  },
+
+  // Reopen/Edit a settled order
+  reopenOrder: async (orderId: number): Promise<OrderDto> => {
+    const response = await api.post(`/api/orders/${orderId}/reopen`);
+    return response.data;
   },
 
   // Add item to order

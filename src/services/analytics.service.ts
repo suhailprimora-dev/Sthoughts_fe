@@ -35,9 +35,16 @@ export interface TopItemDto {
   revenue: number;
 }
 
+function buildUrl(base: string, range: string, startDate?: string, endDate?: string) {
+  let url = `${base}?range=${range}`;
+  if (startDate) url += `&startDate=${encodeURIComponent(startDate)}`;
+  if (endDate) url += `&endDate=${encodeURIComponent(endDate)}`;
+  return url;
+}
+
 export const analyticsService = {
-  getOverview: async (range: string): Promise<AnalyticsOverviewDto> => {
-    const response = await api.get(`/api/analytics/overview?range=${range}`);
+  getOverview: async (range: string, startDate?: string, endDate?: string): Promise<AnalyticsOverviewDto> => {
+    const response = await api.get(buildUrl('/api/analytics/overview', range, startDate, endDate));
     return response.data;
   },
 
@@ -46,18 +53,20 @@ export const analyticsService = {
     return response.data;
   },
 
-  getDailyRevenue: async (range: string): Promise<DailyRevenueDto[]> => {
-    const response = await api.get(`/api/analytics/daily-revenue?range=${range}`);
+  getDailyRevenue: async (range: string, startDate?: string, endDate?: string): Promise<DailyRevenueDto[]> => {
+    const response = await api.get(buildUrl('/api/analytics/daily-revenue', range, startDate, endDate));
     return response.data;
   },
 
-  getPaymentBreakdown: async (range: string): Promise<PaymentMethodBreakdownDto> => {
-    const response = await api.get(`/api/analytics/payment-methods?range=${range}`);
+  getPaymentBreakdown: async (range: string, startDate?: string, endDate?: string): Promise<PaymentMethodBreakdownDto> => {
+    const response = await api.get(buildUrl('/api/analytics/payment-methods', range, startDate, endDate));
     return response.data;
   },
 
-  getTopItems: async (range: string): Promise<TopItemDto[]> => {
-    const response = await api.get(`/api/analytics/top-items?range=${range}`);
+  getTopItems: async (range: string, startDate?: string, endDate?: string): Promise<TopItemDto[]> => {
+    const response = await api.get(buildUrl('/api/analytics/top-items', range, startDate, endDate));
     return response.data;
   }
 };
+
+

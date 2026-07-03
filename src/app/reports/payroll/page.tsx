@@ -1,32 +1,68 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Calendar, CheckCircle, Clock, IndianRupee, FileText } from "lucide-react";
+import { ArrowLeft, Calendar, CheckCircle, Clock, IndianRupee, FileText, Check, X } from "lucide-react";
 import Link from "next/link";
 import { StaffMember, SalaryStructure, PayrollRecord } from "@/types/billing";
 import { staffService } from "@/services/staff.service";
+import { salaryService } from "@/services/salary.service";
+import { toast } from "react-toastify";
 
 export default function PayrollReportPage() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [salaries, setSalaries] = useState<SalaryStructure[]>([]);
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
+  const [loading, setLoading] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   });
 
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const staffData = await staffService.getStaff();
+      if (staffData && staffData.length > 0) {
+        setStaff(staffData.filter(s => s.isActive));
+      }
+    } catch (err) {
+      console.error("Failed to load staff API:", err);
+    }
+
+    try {
+      const salData = await salaryService.getSalaryStructures();
+      if (salData && salData.length > 0) {
+        setSalaries(salData);
+        localStorage.setItem("staff_salaries", JSON.stringify(salData));
+      } else {
+        const localSal = localStorage.getItem("staff_salaries");
+        if (localSal) setSalaries(JSON.parse(localSal));
+      }
+    } catch (err) {
+      console.error("Failed to load salary structures API, using localStorage:", err);
+      const localSal = localStorage.getItem("staff_salaries");
+      if (localSal) setSalaries(JSON.parse(localSal));
+    }
+
+    try {
+      const prData = await salaryService.getPayrollRecords();
+      if (prData) {
+        setPayrollRecords(prData);
+        localStorage.setItem("staff_payroll", JSON.stringify(prData));
+      } else {
+        const localPr = localStorage.getItem("staff_payroll");
+        if (localPr) setPayrollRecords(JSON.parse(localPr));
+      }
+    } catch (err) {
+      console.error("Failed to load payroll records API, using localStorage:", err);
+      const localPr = localStorage.getItem("staff_payroll");
+      if (localPr) setPayrollRecords(JSON.parse(localPr));
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    staffService.getStaff()
-      .then(data => {
-        if (data && data.length > 0) setStaff(data.filter(s => s.isActive));
-      })
-      .catch(console.error);
-
-    const sal = localStorage.getItem("staff_salaries");
-    const pr = localStorage.getItem("staff_payroll");
-
-    if (sal) setSalaries(JSON.parse(sal));
-    if (pr) setPayrollRecords(JSON.parse(pr));
+    loadData();
   }, []);
 
   const getNetSalary = (staffId: string) => {
@@ -37,17 +73,62 @@ export default function PayrollReportPage() {
     return gross - deductions;
   };
 
-  const monthRecords = payrollRecords.filter(r => r.month === selectedMonth);
+  const monthRecords = payrollRecords.filter(r => r.month === selectedMonth && r.status === "paid");
   
   // Calculate Totals
   const totalPayroll = staff.reduce((sum, member) => sum + getNetSalary(member.id), 0);
   const totalPaid = monthRecords.reduce((sum, record) => sum + record.netSalary, 0);
   const totalPending = totalPayroll - totalPaid;
 
+  const handleMarkPaid = async (member: StaffMember) => {
+    const netSalary = getNetSalary(member.id);
+    const newRecord: PayrollRecord = {
+      id: Date.now().toString(),
+      staffId: member.id,
+      month: selectedMonth,
+      netSalary,
+      status: "paid",
+      paidAt: new Date().toISOString()
+    };
+
+    try {
+      const savedRecord = await salaryService.submitPayroll(newRecord);
+      const updated = [...payrollRecords.filter(r => !(r.staffId === member.id && r.month === selectedMonth)), savedRecord];
+      setPayrollRecords(updated);
+      localStorage.setItem("staff_payroll", JSON.stringify(updated));
+      toast.success(`${member.name}'s salary marked as PAID via API!`);
+    } catch (err) {
+      console.error("API error, falling back to local storage:", err);
+      const updated = [...payrollRecords.filter(r => !(r.staffId === member.id && r.month === selectedMonth)), newRecord];
+      setPayrollRecords(updated);
+      localStorage.setItem("staff_payroll", JSON.stringify(updated));
+      toast.success(`${member.name}'s salary marked as PAID!`);
+    }
+  };
+
+  const handleMarkUnpaid = async (memberId: string, recordId: string) => {
+    try {
+      if (!recordId.startsWith("17") && !recordId.startsWith("s")) {
+        await salaryService.deletePayrollRecord(recordId);
+      } else {
+        await salaryService.deletePayrollRecord(recordId).catch(() => {});
+      }
+      const updated = payrollRecords.filter(r => !(r.staffId === memberId && r.month === selectedMonth));
+      setPayrollRecords(updated);
+      localStorage.setItem("staff_payroll", JSON.stringify(updated));
+      toast.info("Status updated to UNPAID");
+    } catch (err) {
+      const updated = payrollRecords.filter(r => !(r.staffId === memberId && r.month === selectedMonth));
+      setPayrollRecords(updated);
+      localStorage.setItem("staff_payroll", JSON.stringify(updated));
+      toast.info("Status updated to UNPAID");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/staff" className="w-10 h-10 bg-slate-100 hover:bg-slate-200 rounded-full flex items-center justify-center transition-colors">
@@ -55,7 +136,7 @@ export default function PayrollReportPage() {
             </Link>
             <div>
               <h1 className="text-xl font-black text-slate-800">Payroll Tracker</h1>
-              <p className="text-xs text-slate-500 font-medium">Monthly Salary Reports</p>
+              <p className="text-xs text-slate-500 font-medium">Monthly Salary Status & Reports</p>
             </div>
           </div>
           <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
@@ -111,10 +192,10 @@ export default function PayrollReportPage() {
 
         {/* Staff Table */}
         <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="p-6 border-b border-slate-200 bg-slate-50">
+          <div className="p-6 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
               <IndianRupee className="w-5 h-5 text-primary-600" />
-              Employee Salary Status
+              Employee Salary Status ({new Date(selectedMonth + "-01").toLocaleDateString('en-US', { month: 'long', year: 'numeric' })})
             </h2>
           </div>
           <div className="overflow-x-auto">
@@ -125,13 +206,14 @@ export default function PayrollReportPage() {
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">Role</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">Net Salary</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 text-right">Payment Date</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">Payment Date</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {staff.map((member) => {
                   const netSalary = getNetSalary(member.id);
-                  const record = monthRecords.find(r => r.staffId === member.id);
+                  const record = payrollRecords.find(r => r.staffId === member.id && r.month === selectedMonth && r.status === "paid");
                   const isPaid = !!record;
 
                   return (
@@ -163,19 +245,36 @@ export default function PayrollReportPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4">
                         <span className="text-sm font-medium text-slate-500">
                           {isPaid && record.paidAt ? new Date(record.paidAt).toLocaleDateString("en-IN", {
                             day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                           }) : "-"}
                         </span>
                       </td>
+                      <td className="px-6 py-4 text-right">
+                        {isPaid ? (
+                          <button
+                            onClick={() => handleMarkUnpaid(member.id, record.id)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-colors border border-rose-200 active:scale-95"
+                          >
+                            <X className="w-3.5 h-3.5" /> Mark Unpaid
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleMarkPaid(member)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                          >
+                            <Check className="w-3.5 h-3.5" /> Mark Paid
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
                 {staff.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500 font-medium text-sm">
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500 font-medium text-sm">
                       No active staff found.
                     </td>
                   </tr>

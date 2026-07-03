@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Aura Dine - Restaurant Management System",
-  description: "Complete restaurant management: billing, orders, reports, staff and menu management.",
+  title: "Thoughtit - Multi-Tenant Enterprise Cloud POS",
+  description: "Custom branded multi-tenant cloud POS management: billing, orders, reports, staff and menu management powered by Thoughtit.",
 };
 
 import { MenuProvider } from "@/context/MenuContext";
@@ -24,8 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable}`}>
-      <body className="font-sans bg-slate-50 antialiased">
+    <html lang="en" className={`${inter.variable}`} suppressHydrationWarning>
+      <body className="font-sans bg-slate-50 antialiased" suppressHydrationWarning>
         <MenuProvider>
           <div className="flex h-screen overflow-hidden">
             <Sidebar />

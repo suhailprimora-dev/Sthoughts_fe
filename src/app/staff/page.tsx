@@ -33,6 +33,7 @@ import {
 } from "@/types/billing";
 import { staffService } from "@/services/staff.service";
 import { attendanceService } from "@/services/attendance.service";
+import { salaryService } from "@/services/salary.service";
 import { toast } from "react-toastify";
 
 const ROLES: StaffRole[] = ["Manager", "Waiter", "Chef", "Cashier", "Cleaner", "Helper"];
@@ -67,10 +68,10 @@ function formatSalary(s: SalaryStructure) {
 }
 
 const SAMPLE_STAFF: StaffMember[] = [
-  { id: "s1", name: "Raju Kumar",    role: "Manager",  phone: "9876543210", email: "raju@auradine.com",   joinDate: "2023-01-15", salary: 35000, isActive: true },
-  { id: "s2", name: "Priya Sharma",  role: "Chef",     phone: "9845678901", email: "priya@auradine.com",  joinDate: "2023-03-10", salary: 30000, isActive: true },
-  { id: "s3", name: "Suresh Reddy",  role: "Waiter",   phone: "9812345678", email: "suresh@auradine.com", joinDate: "2023-06-20", salary: 18000, isActive: true },
-  { id: "s4", name: "Meena Patel",   role: "Cashier",  phone: "9898765432", email: "meena@auradine.com",  joinDate: "2023-08-05", salary: 22000, isActive: true },
+  { id: "s1", name: "Raju Kumar",    role: "Manager",  phone: "9876543210", email: "raju@thoughtit.com",   joinDate: "2023-01-15", salary: 35000, isActive: true },
+  { id: "s2", name: "Priya Sharma",  role: "Chef",     phone: "9845678901", email: "priya@thoughtit.com",  joinDate: "2023-03-10", salary: 30000, isActive: true },
+  { id: "s3", name: "Suresh Reddy",  role: "Waiter",   phone: "9812345678", email: "suresh@thoughtit.com", joinDate: "2023-06-20", salary: 18000, isActive: true },
+  { id: "s4", name: "Meena Patel",   role: "Cashier",  phone: "9898765432", email: "meena@thoughtit.com",  joinDate: "2023-08-05", salary: 22000, isActive: true },
 ];
 
 const SAMPLE_SALARIES: SalaryStructure[] = [
@@ -89,6 +90,7 @@ function EmployeeDetailView({
   leaves,
   salary,
   payrollRecords,
+  onToggleStatus,
   onBack,
 }: {
   member: StaffMember;
@@ -96,6 +98,7 @@ function EmployeeDetailView({
   leaves: LeaveRequest[];
   salary?: SalaryStructure;
   payrollRecords: PayrollRecord[];
+  onToggleStatus?: (staffId: string, month: string, targetStatus: "paid" | "unpaid", netSalary: number) => void;
   onBack: () => void;
 }) {
   const now = new Date();
@@ -381,6 +384,45 @@ function EmployeeDetailView({
         )}
       </div>
 
+      {/* Current Month Salary Status Card */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-center justify-between flex-wrap gap-4 shadow-sm">
+        <div>
+          <h3 className="text-sm font-bold text-slate-700">Salary Status for {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Quickly mark or toggle paid/unpaid status for this employee</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {myPayroll.some(p => p.month === todayISO().substring(0, 7) && p.status === "paid") ? (
+            <>
+              <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black uppercase tracking-wide flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5" /> Paid
+              </span>
+              {onToggleStatus && (
+                <button
+                  onClick={() => onToggleStatus(member.id, todayISO().substring(0, 7), "unpaid", salaryInfo?.net || member.salary)}
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all active:scale-95"
+                >
+                  Mark Unpaid
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-black uppercase tracking-wide flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5" /> Pending / Unpaid
+              </span>
+              {onToggleStatus && (
+                <button
+                  onClick={() => onToggleStatus(member.id, todayISO().substring(0, 7), "paid", salaryInfo?.net || member.salary)}
+                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                >
+                  Mark Paid
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Payment History */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5">
         <h3 className="text-sm font-bold text-slate-700 mb-3">Payment History</h3>
@@ -393,6 +435,7 @@ function EmployeeDetailView({
                 <tr className="bg-slate-50 border-b border-slate-100">
                   <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Month</th>
                   <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Amount Paid</th>
+                  <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Payment Date</th>
                   <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Action</th>
                 </tr>
@@ -409,19 +452,32 @@ function EmployeeDetailView({
                       <span className="font-black text-emerald-600 text-sm">₹{p.netSalary.toLocaleString()}</span>
                     </td>
                     <td className="px-4 py-3">
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide ${p.status === "paid" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"}`}>
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
                       <span className="text-xs font-medium text-slate-500">
-                        {p.paidAt ? new Date(p.paidAt).toLocaleDateString("en-IN", {
+                        {p.paidAt && p.paidAt !== "-" ? new Date(p.paidAt).toLocaleDateString("en-IN", {
                           day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                         }) : "-"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
                       <button
                         onClick={() => setViewPayslip(p)}
                         className="px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg text-xs font-bold transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                       >
                         View Slip
                       </button>
+                      {onToggleStatus && (
+                        <button
+                          onClick={() => onToggleStatus(member.id, p.month, p.status === "paid" ? "unpaid" : "paid", p.netSalary)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 ${p.status === "paid" ? "bg-rose-50 hover:bg-rose-100 text-rose-700" : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700"}`}
+                        >
+                          {p.status === "paid" ? "Mark Unpaid" : "Mark Paid"}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -583,10 +639,35 @@ export default function StaffPage() {
         if (a) setAttendance(JSON.parse(a));
       });
 
-    setLeaves(l   ? JSON.parse(l)   : []);
-    setSalaries(sal ? JSON.parse(sal) : SAMPLE_SALARIES);
-    setPayrollRecords(pr ? JSON.parse(pr) : []);
-    if (!sal) localStorage.setItem("staff_salaries", JSON.stringify(SAMPLE_SALARIES));
+    setLeaves(l ? JSON.parse(l) : []);
+
+    salaryService.getSalaryStructures()
+      .then(data => {
+        if (data && data.length > 0) {
+          setSalaries(data);
+          localStorage.setItem("staff_salaries", JSON.stringify(data));
+        } else if (sal) setSalaries(JSON.parse(sal));
+        else {
+          setSalaries(SAMPLE_SALARIES);
+          localStorage.setItem("staff_salaries", JSON.stringify(SAMPLE_SALARIES));
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load salary structure API:", err);
+        setSalaries(sal ? JSON.parse(sal) : SAMPLE_SALARIES);
+      });
+
+    salaryService.getPayrollRecords()
+      .then(data => {
+        if (data) {
+          setPayrollRecords(data);
+          localStorage.setItem("staff_payroll", JSON.stringify(data));
+        } else if (pr) setPayrollRecords(JSON.parse(pr));
+      })
+      .catch(err => {
+        console.error("Failed to load payroll API:", err);
+        if (pr) setPayrollRecords(JSON.parse(pr));
+      });
   }, []);
 
   // When date changes, load existing attendance as draft
@@ -732,24 +813,67 @@ export default function StaffPage() {
   const updateLeaveStatus = (id: string, status: LeaveStatus) =>
     saveLeaves(leaves.map((l) => (l.id === id ? { ...l, status } : l)));
 
-  const updateSalaryField = (staffId: string, field: keyof SalaryStructure, value: number) => {
+  const updateSalaryField = async (staffId: string, field: keyof SalaryStructure, value: number) => {
     const newSalaries = [...salaries];
     const index = newSalaries.findIndex((s) => s.staffId === staffId);
+    let updatedSal: SalaryStructure;
     if (index >= 0) {
-      newSalaries[index] = { ...newSalaries[index], [field]: value };
+      updatedSal = { ...newSalaries[index], [field]: value };
+      newSalaries[index] = updatedSal;
     } else {
       const base = staff.find((s) => s.id === staffId)?.salary || 0;
-      newSalaries.push({
+      updatedSal = {
         staffId, basic: base * 0.7, hra: base * 0.15, foodAllowance: 1500, travelAllowance: 800, pfDeduction: base * 0.07, taxDeduction: 0,
         [field]: value,
-      });
+      };
+      newSalaries.push(updatedSal);
     }
     saveSalaries(newSalaries);
+    try {
+      await salaryService.saveOrUpdateSalaryStructure(updatedSal);
+    } catch (e) {
+      console.error("Failed API save for salary structure", e);
+    }
+  };
+
+  const handleTogglePayrollStatus = async (staffId: string, month: string, targetStatus: "paid" | "unpaid", netSalary: number) => {
+    const existing = payrollRecords.find(r => r.staffId === staffId && r.month === month);
+    if (targetStatus === "unpaid") {
+      if (existing) {
+        try {
+          await salaryService.deletePayrollRecord(existing.id).catch(() => {});
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      const updated = payrollRecords.filter(r => !(r.staffId === staffId && r.month === month));
+      savePayroll(updated);
+      toast.info("Salary marked as unpaid.");
+    } else {
+      const record: PayrollRecord = {
+        id: existing?.id || Date.now().toString(),
+        staffId,
+        month,
+        netSalary,
+        status: "paid",
+        paidAt: new Date().toISOString()
+      };
+      try {
+        const saved = await salaryService.submitPayroll(record);
+        const updated = [...payrollRecords.filter(r => !(r.staffId === staffId && r.month === month)), saved];
+        savePayroll(updated);
+        toast.success("Salary marked as paid via API!");
+      } catch (e) {
+        const updated = [...payrollRecords.filter(r => !(r.staffId === staffId && r.month === month)), record];
+        savePayroll(updated);
+        toast.success("Salary marked as paid!");
+      }
+    }
   };
 
   // Submit Salary for a specific month
-  const submitSalary = (memberId: string, netSalary: number) => {
-    const existing = payrollRecords.find(r => r.staffId === memberId && r.month === payrollMonth);
+  const submitSalary = async (memberId: string, netSalary: number) => {
+    const existing = payrollRecords.find(r => r.staffId === memberId && r.month === payrollMonth && r.status === "paid");
     if (existing) {
       toast.info("Salary already paid for this month.");
       return;
@@ -762,8 +886,17 @@ export default function StaffPage() {
       status: "paid",
       paidAt: new Date().toISOString()
     };
-    savePayroll([...payrollRecords, record]);
-    toast.success("Salary marked as paid!");
+    try {
+      const savedRecord = await salaryService.submitPayroll(record);
+      const updated = [...payrollRecords.filter(r => !(r.staffId === memberId && r.month === payrollMonth)), savedRecord];
+      savePayroll(updated);
+      toast.success("Salary marked as paid via API!");
+    } catch (e) {
+      console.error("API failed, saved locally", e);
+      const updated = [...payrollRecords.filter(r => !(r.staffId === memberId && r.month === payrollMonth)), record];
+      savePayroll(updated);
+      toast.success("Salary marked as paid!");
+    }
   };
 
   return (
@@ -817,6 +950,7 @@ export default function StaffPage() {
               leaves={leaves}
               salary={salaries.find((s) => s.staffId === selectedEmployee.id)}
               payrollRecords={payrollRecords}
+              onToggleStatus={handleTogglePayrollStatus}
               onBack={() => setSelectedEmployee(null)}
             />
           ) : (
@@ -1098,10 +1232,18 @@ export default function StaffPage() {
                         <p className="text-xs text-slate-400">Net Take-Home</p>
                         <p className="text-lg font-black text-emerald-600">₹{net.toLocaleString()}</p>
                       </div>
-                      {payrollRecords.some(r => r.staffId === member.id && r.month === payrollMonth) ? (
-                        <div className="px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 animate-in fade-in zoom-in">
-                          <CheckCircle className="w-5 h-5 text-emerald-500" />
-                          <span className="text-sm font-bold text-emerald-700">Paid for {new Date(payrollMonth + "-01").toLocaleDateString('en-US', { month: 'short' })}</span>
+                      {payrollRecords.some(r => r.staffId === member.id && r.month === payrollMonth && r.status === "paid") ? (
+                        <div className="flex items-center gap-2">
+                          <div className="px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 animate-in fade-in zoom-in">
+                            <CheckCircle className="w-5 h-5 text-emerald-500" />
+                            <span className="text-sm font-bold text-emerald-700">Paid for {new Date(payrollMonth + "-01").toLocaleDateString('en-US', { month: 'short' })}</span>
+                          </div>
+                          <button
+                            onClick={() => handleTogglePayrollStatus(member.id, payrollMonth, "unpaid", net)}
+                            className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all active:scale-95"
+                          >
+                            Mark Unpaid
+                          </button>
                         </div>
                       ) : (
                         <button
@@ -1192,7 +1334,7 @@ export default function StaffPage() {
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Email</label>
                   <input type="email" value={staffForm.email} onChange={e => setStaffForm({...staffForm, email: e.target.value})}
-                    placeholder="staff@auradine.com" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                    placeholder="staff@thoughtit.com" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
                 </div>
               </div>
             </div>

@@ -17,6 +17,14 @@ export default function BillHistory({
 }: BillHistoryProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
+  const [shopName, setShopName] = React.useState("THOUGHTIT POS");
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("user_business_name");
+      if (stored) setShopName(stored.toUpperCase());
+    }
+  }, []);
 
   if (!isOpen) return null;
 
@@ -134,8 +142,8 @@ export default function BillHistory({
                       <div className="inline-flex p-2 bg-primary-50 rounded-full text-primary-600 mb-2">
                         <Receipt className="w-5 h-5" />
                       </div>
-                      <h3 className="text-base font-bold text-slate-850">AURA DINE</h3>
-                      <p className="text-[10px] text-slate-400">Restaurant & Fine Dining</p>
+                      <h3 className="text-base font-bold text-slate-850">{shopName}</h3>
+                      <p className="text-[10px] text-slate-400">Powered by Thoughtit</p>
                       <div className="text-xs font-mono text-slate-500 mt-2 bg-slate-50 px-2 py-1 rounded">
                         Invoice ID: #{selectedBill.id}
                       </div>
